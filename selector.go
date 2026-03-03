@@ -3,9 +3,9 @@ package selector
 import "fmt"
 
 type Selector struct {
-	Name      string
-	Params    map[string]any
-	Subfields []*Selector
+	Name   string
+	Params map[string]any
+	Fields []*Selector
 }
 
 func Select(input ...any) []*Selector {
