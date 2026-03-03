@@ -1,0 +1,142 @@
+package selector
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Preparable is an interface for structure that represents database object to be selected
+// with just table columns data or with additional fields
+//
+// Preparable don't know about selection count, one or more rows
+type Preparable interface {
+	SetSelectAlias(alias string)
+	ScanFields(ctx *Context, selector Selector)
+	GetAliasIterator() *AliasIterator
+	UseAliasIterator(iterator *AliasIterator)
+	ScanFieldNames() []string
+	ScanFieldValues() []any
+	SelectQuery() string
+
+	Setup(ctx *Context, selector Selector)
+}
+
+type Base interface {
+	ScanFieldNames() []string
+	ScanFieldValues() []any
+	TableName() string
+}
+
+type Context struct {
+	Iterator *AliasIterator
+}
+
+func NewContext() *Context {
+	return &Context{
+		Iterator: NewAliasIterator(),
+	}
+}
+
+type Preparer struct {
+	Alias               string
+	ScanFieldNamesList  []string
+	ScanFieldValuesList []any
+	JoinsList           []string
+	AliasIterator       *AliasIterator
+
+	WhereClause string
+	GroupClause string
+	Limit       uint32
+
+	base Base
+}
+
+func (p *Preparer) Setup(ctx *Context, base Base) {
+	p.base = base
+	p.AliasIterator = ctx.Iterator
+	if len(p.Alias) == 0 {
+		p.Alias = p.AliasIterator.NextAlias()
+	}
+}
+
+func (p *Preparer) SetSelectAlias(alias string) {
+	p.Alias = alias
+}
+
+func (p *Preparer) ApplyAlias(field string) string {
+	if len(p.Alias) == 0 {
+		return field
+	}
+
+	return fmt.Sprintf("%s.%s", p.Alias, field)
+}
+
+func (p *Preparer) GetAliasIterator() *AliasIterator {
+	if p.AliasIterator == nil {
+		p.AliasIterator = NewAliasIterator()
+	}
+
+	return p.AliasIterator
+}
+
+func (p *Preparer) UseAliasIterator(iterator *AliasIterator) {
+	p.AliasIterator = iterator
+}
+
+func (p *Preparer) ScanFieldNames() (fields []string) {
+	fields = p.base.ScanFieldNames()
+	if len(p.Alias) != 0 {
+		for i, field := range fields {
+			fields[i] = fmt.Sprintf("%s.%s", p.Alias, field)
+		}
+	}
+
+	return append(fields, p.ScanFieldNamesList...)
+}
+
+func (p *Preparer) ScanFieldValues() (values []any) {
+	if p.base != nil {
+		values = p.base.ScanFieldValues()
+	}
+
+	return append(values, p.ScanFieldValuesList...)
+}
+
+func (p *Preparer) Where(where string) {
+	tableName := p.base.TableName()
+
+	if len(tableName) != 0 {
+		p.WhereClause = strings.ReplaceAll(where, tableName+".", p.Alias+".")
+	}
+}
+
+func (p *Preparer) SelectQuery() string {
+	q := fmt.Sprintf(`SELECT %s FROM %s %s`, strings.Join(p.ScanFieldNames(), ", "), p.base.TableName(), p.Alias)
+
+	if len(p.JoinsList) != 0 {
+		q += " " + strings.Join(p.JoinsList, "\n\t")
+	}
+
+	if len(p.WhereClause) != 0 {
+		q += fmt.Sprintf("\nWHERE %s", p.WhereClause)
+	}
+
+	if len(p.GroupClause) != 0 {
+		q += fmt.Sprintf("\nGROUP BY %s", p.GroupClause)
+	}
+
+	if p.Limit != 0 {
+		q += fmt.Sprintf("\nLIMIT %d", p.Limit)
+	}
+
+	return q
+}
+
+func SelectFrom[T Base]() string {
+	var base T
+	return fmt.Sprintf(`SELECT %s FROM %s`, strings.Join(base.ScanFieldNames(), ", "), base.TableName())
+}
+
+func SelectPart(preparable Preparable) string {
+	return strings.Join(preparable.ScanFieldNames(), ", ")
+}
