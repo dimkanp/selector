@@ -27,16 +27,6 @@ type Base interface {
 	TableName() string
 }
 
-type Context struct {
-	Iterator *AliasIterator
-}
-
-func NewContext() *Context {
-	return &Context{
-		Iterator: NewAliasIterator(),
-	}
-}
-
 type Preparer struct {
 	Alias               string
 	ScanFieldNamesList  []string
@@ -81,6 +71,12 @@ func (p *Preparer) GetAliasIterator() *AliasIterator {
 
 func (p *Preparer) UseAliasIterator(iterator *AliasIterator) {
 	p.AliasIterator = iterator
+}
+
+func ScanField[T any](p *Preparer, selectPart string, placeToScan *T, joinPart string) {
+	p.ScanFieldNamesList = append(p.ScanFieldNamesList, selectPart)
+	p.ScanFieldValuesList = append(p.ScanFieldValuesList, Scan(placeToScan))
+	p.JoinsList = append(p.JoinsList, joinPart)
 }
 
 func (p *Preparer) ScanFieldNames() (fields []string) {
