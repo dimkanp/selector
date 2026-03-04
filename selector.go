@@ -2,8 +2,15 @@ package selector
 
 import "fmt"
 
+const defaultName = "default"
+
 type Selector struct {
-	Name   string
+	// Name of the field to select
+	Name string
+	// Alist to use on selecting field
+	// or to set generated value
+	Alias string
+	// Any parameters to filter instances
 	Params map[string]any
 	Fields []*Selector
 }
@@ -36,7 +43,7 @@ func normalize(input any) []*Selector {
 }
 
 func DefaultSelector() *Selector {
-	return &Selector{Name: "default"}
+	return &Selector{Name: defaultName}
 }
 
 func GetParameter[T any](s *Selector, name string) (res T, ok bool) {
@@ -47,4 +54,8 @@ func GetParameter[T any](s *Selector, name string) (res T, ok bool) {
 
 	res, ok = p.(T)
 	return res, ok
+}
+
+func (s *Selector) IsDefault() bool {
+	return s.Name == defaultName && len(s.Params) == 0 && len(s.Fields) == 0
 }

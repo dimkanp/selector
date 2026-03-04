@@ -36,7 +36,9 @@ type Preparer struct {
 
 	WhereClause string
 	GroupClause string
+	OrderClause string
 	Limit       uint32
+	Offset      uint32
 
 	base Base
 }
@@ -73,14 +75,17 @@ func (p *Preparer) UseAliasIterator(iterator *AliasIterator) {
 	p.AliasIterator = iterator
 }
 
-func ScanField[T any](p *Preparer, selectPart string, placeToScan *T, joinPart string) {
+func ScanField[T any](p *Preparer, placeToScan *T, selectPart string, joinPart string) {
 	p.ScanFieldNamesList = append(p.ScanFieldNamesList, selectPart)
 	p.ScanFieldValuesList = append(p.ScanFieldValuesList, Scan(placeToScan))
 	p.JoinsList = append(p.JoinsList, joinPart)
 }
 
 func (p *Preparer) ScanFieldNames() (fields []string) {
-	fields = p.base.ScanFieldNames()
+	baseFields := p.base.ScanFieldNames()
+	fields = make([]string, len(baseFields), len(baseFields)+len(p.ScanFieldNamesList))
+	copy(fields, baseFields)
+
 	if len(p.Alias) != 0 {
 		for i, field := range fields {
 			fields[i] = fmt.Sprintf("%s.%s", p.Alias, field)
@@ -106,6 +111,14 @@ func (p *Preparer) Where(where string) {
 	}
 }
 
+func (p *Preparer) OrderBy(order string) {
+	tableName := p.base.TableName()
+
+	if len(tableName) != 0 {
+		p.OrderClause = strings.ReplaceAll(order, tableName+".", p.Alias+".")
+	}
+}
+
 func (p *Preparer) SelectQuery() string {
 	q := fmt.Sprintf(`SELECT %s FROM %s %s`, strings.Join(p.ScanFieldNames(), ", "), p.base.TableName(), p.Alias)
 
@@ -121,8 +134,16 @@ func (p *Preparer) SelectQuery() string {
 		q += fmt.Sprintf("\nGROUP BY %s", p.GroupClause)
 	}
 
+	if len(p.OrderClause) != 0 {
+		q += fmt.Sprintf("\nORDER BY %s", p.OrderClause)
+	}
+
 	if p.Limit != 0 {
 		q += fmt.Sprintf("\nLIMIT %d", p.Limit)
+	}
+
+	if p.Offset != 0 {
+		q += fmt.Sprintf("\nOFFSET %d", p.Offset)
 	}
 
 	return q
