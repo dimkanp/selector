@@ -5,11 +5,13 @@ import (
 	"fmt"
 )
 
-type RowScanner[T any] struct {
+// JsonScanner made for fields that selected as a JSON
+// to scan JSON data and parse it into Value
+type JsonScanner[T any] struct {
 	Value *T
 }
 
-func (r *RowScanner[T]) Scan(src any) error {
+func (r *JsonScanner[T]) Scan(src any) error {
 	data, ok := src.([]byte)
 	if !ok {
 		return fmt.Errorf("cannot scan Row[%T]", src)
@@ -17,14 +19,15 @@ func (r *RowScanner[T]) Scan(src any) error {
 
 	err := json.Unmarshal(data, r.Value)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshal scanned JSON data into %T: %w", r.Value, err)
 	}
 
 	return nil
 }
 
-func Scan[T any](p *T) *RowScanner[T] {
-	return &RowScanner[T]{
+// ScanJson returns structure ready to scan JSON data from database and parse it in the object passed as parameter p
+func ScanJson[T any](p *T) *JsonScanner[T] {
+	return &JsonScanner[T]{
 		Value: p,
 	}
 }
