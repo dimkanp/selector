@@ -1,6 +1,7 @@
 package selector
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -25,6 +26,47 @@ type Base interface {
 	ScanFieldNames() []string
 	ScanFieldValues() []any
 	TableName() string
+}
+
+func Prepare[P Preparable](ctx *Context, s Selector) P {
+	var p P
+	p.Setup(ctx, s)
+	p.ScanFields(ctx, s)
+
+	return p
+}
+
+type ScanReady interface {
+	ScanDestinations(fieldNames []string) []any
+}
+
+func ScanAll[T any, PT interface {
+	*T
+	ScanReady
+}](rows *sql.Rows) ([]*T, error) {
+	var results []*T
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var x T
+		p := PT(&x)
+		err = rows.Scan(p.ScanDestinations(columns)...)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, &x)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 type Preparer struct {
@@ -75,9 +117,9 @@ func (p *Preparer) UseAliasIterator(iterator *AliasIterator) {
 	p.AliasIterator = iterator
 }
 
-func ScanField[T any](p *Preparer, placeToScan *T, selectPart string, joinPart string) {
+func (p *Preparer) ScanField(placeToScan any, selectPart string, joinPart string) {
 	p.ScanFieldNamesList = append(p.ScanFieldNamesList, selectPart)
-	p.ScanFieldValuesList = append(p.ScanFieldValuesList, Scan(placeToScan))
+	p.ScanFieldValuesList = append(p.ScanFieldValuesList, placeToScan)
 	p.JoinsList = append(p.JoinsList, joinPart)
 }
 
