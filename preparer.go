@@ -37,12 +37,22 @@ func Prepare[P Preparable](ctx *Context, s Selector) P {
 }
 
 type ScanReady interface {
+	// ScanDestinations fieldNames parameter expected to be rows.Columns()
+	// and returned slice should contain pointers to relevant places
+	// in given order to scan values into
 	ScanDestinations(fieldNames []string) []any
 }
 
+// ScanAll scans all returned records from rows into T structures
+// by column names given from rows.Columns().
+// *T should implement ScanReady interface to match scanned field with places for them
 func ScanAll[T any, PT interface {
-	*T
-	ScanReady
+	*T        // PT must be pointer to T
+	ScanReady // and implements ScanReady interface
+	// ScanAll have two type parameters to divide structure from interface implementation.
+	// Interface must be implemented by pointer receiver to allow rows.Scan method store
+	// scanned values into the structure.
+	// And value type T passed for efficient creation of new T objects without reflection
 }](rows *sql.Rows) ([]*T, error) {
 	var results []*T
 	columns, err := rows.Columns()
