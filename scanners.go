@@ -31,7 +31,7 @@ type JsonScanner[T any] struct {
 
 func (r *JsonScanner[T]) Scan(src any) error {
 	if src == nil {
-		src = "null" // leave all handling to the encoding/json package
+		src = []byte("null") // leave all handling to the encoding/json package
 	}
 
 	data, ok := src.([]byte)
