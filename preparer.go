@@ -16,7 +16,6 @@ type Preparable interface {
 	GetAliasIterator() *AliasIterator
 	UseAliasIterator(iterator *AliasIterator)
 	ScanFieldNames() []string
-	ScanFieldValues() []any
 	SelectQuery() string
 
 	Setup(ctx *Context, selector Selector)
