@@ -37,10 +37,18 @@ func Prepare[P Preparable](ctx *Context, s Selector) P {
 }
 
 type ScanReady interface {
-	// ScanDestinations fieldNames parameter expected to be rows.Columns()
-	// and returned slice should contain pointers to relevant places
-	// in given order to scan values into
-	ScanDestinations(fieldNames []string) []any
+	// ScanDestination fieldName parameter expected to be one of rows.Columns()
+	// and returned value should be a pointer to relevant place
+	ScanDestination(fieldName string) any
+}
+
+func scanDestinations(o ScanReady, columns []string) []any {
+	places := make([]any, len(columns))
+	for i, columnName := range columns {
+		places[i] = o.ScanDestination(columnName)
+	}
+
+	return places
 }
 
 // ScanAll scans all returned records from rows into T structures
@@ -63,7 +71,7 @@ func ScanAll[T any, PT interface {
 	for rows.Next() {
 		var x T
 		p := PT(&x)
-		err = rows.Scan(p.ScanDestinations(columns)...)
+		err = rows.Scan(scanDestinations(p, columns)...)
 		if err != nil {
 			return nil, err
 		}
