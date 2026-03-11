@@ -3,6 +3,7 @@ package selector
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -23,7 +24,6 @@ type Preparable interface {
 
 type Base interface {
 	ScanFieldNames() []string
-	ScanFieldValues() []any
 	TableName() string
 }
 
@@ -140,26 +140,16 @@ func (p *Preparer) ScanField(placeToScan any, selectPart string, joinPart string
 	p.JoinsList = append(p.JoinsList, joinPart)
 }
 
-func (p *Preparer) ScanFieldNames() (fields []string) {
-	baseFields := p.base.ScanFieldNames()
-	fields = make([]string, len(baseFields), len(baseFields)+len(p.ScanFieldNamesList))
-	copy(fields, baseFields)
-
-	if len(p.Alias) != 0 {
-		for i, field := range fields {
-			fields[i] = fmt.Sprintf("%s.%s", p.Alias, field)
-		}
+func (p *Preparer) ScanBaseField(fieldName string) {
+	if !slices.Contains(p.base.ScanFieldNames(), fieldName) {
+		panic(fmt.Errorf("field name %s not found in base structure for table %s", fieldName, p.base.TableName()))
 	}
 
-	return append(fields, p.ScanFieldNamesList...)
+	p.ScanFieldNamesList = append(p.ScanFieldNamesList, p.ApplyAlias(fieldName))
 }
 
-func (p *Preparer) ScanFieldValues() (values []any) {
-	if p.base != nil {
-		values = p.base.ScanFieldValues()
-	}
-
-	return append(values, p.ScanFieldValuesList...)
+func (p *Preparer) ScanFieldNames() (fields []string) {
+	return p.ScanFieldNamesList
 }
 
 func (p *Preparer) Where(where string) {
@@ -179,10 +169,10 @@ func (p *Preparer) OrderBy(order string) {
 }
 
 func (p *Preparer) SelectQuery() string {
-	q := fmt.Sprintf(`SELECT %s FROM %s %s`, strings.Join(p.ScanFieldNames(), ", "), p.base.TableName(), p.Alias)
+	q := fmt.Sprintf("SELECT %s\nFROM %s %s", strings.Join(p.ScanFieldNames(), ", "), p.base.TableName(), p.Alias)
 
 	if len(p.JoinsList) != 0 {
-		q += " " + strings.Join(p.JoinsList, "\n\t")
+		q += "\n\t" + strings.Join(p.JoinsList, "\n\t")
 	}
 
 	if len(p.WhereClause) != 0 {
