@@ -160,6 +160,14 @@ func (p *Preparer) Where(where string) {
 	}
 }
 
+func (p *Preparer) GroupBy(groupBy string) {
+	tableName := p.base.TableName()
+
+	if len(tableName) != 0 {
+		p.WhereClause = strings.ReplaceAll(groupBy, tableName+".", p.Alias+".")
+	}
+}
+
 func (p *Preparer) OrderBy(order string) {
 	tableName := p.base.TableName()
 
