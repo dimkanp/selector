@@ -125,3 +125,12 @@ func (s *Selector) Copy() *Selector {
 
 	return ns
 }
+
+func CopySelectors(in []*Selector) []*Selector {
+	out := make([]*Selector, len(in))
+	for i := range in {
+		out[i] = in[i].Copy()
+	}
+
+	return out
+}
