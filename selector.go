@@ -106,3 +106,22 @@ func (s *Selector) GetAlias(fieldsTree ...string) (string, error) {
 
 	return "", fmt.Errorf("%s field not found", name)
 }
+
+func (s *Selector) Copy() *Selector {
+	ns := &Selector{
+		Name:   s.Name,
+		Alias:  s.Alias,
+		Params: make(map[string]any, len(s.Params)),
+		Fields: make([]*Selector, len(s.Fields)),
+	}
+
+	for k, v := range s.Params {
+		ns.Params[k] = v
+	}
+
+	for k, v := range s.Fields {
+		ns.Fields[k] = v.Copy()
+	}
+
+	return ns
+}
