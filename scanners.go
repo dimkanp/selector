@@ -74,3 +74,40 @@ func ScanJson[T any](p *T) *JsonScanner[T] {
 		Value: p,
 	}
 }
+
+type FirstScanner[T any] struct {
+	Value *T
+}
+
+// ScanFirst is like ScanJson but expects slice to be scanned
+// after scanning it set first element from slice to passed value by pointer p.
+//
+// Expected to use in cases where query cant return JSON object of single structure
+// but can return slice of single element, for example instead
+// Postgres function row_to_json() used json_agg() for some reason
+func ScanFirst[T any](p *T) *FirstScanner[T] {
+	return &FirstScanner[T]{
+		Value: p,
+	}
+}
+
+func (s *FirstScanner[T]) Scan(src any) error {
+	data, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("cannot scan Row[%T]", src)
+	}
+
+	var slice []T
+	err := json.Unmarshal(data, &slice)
+	if err != nil {
+		return fmt.Errorf("unmarshal scanned JSON data into %T: %w", s.Value, err)
+	}
+
+	if len(slice) == 0 {
+		// set default value
+		slice = make([]T, 1)
+	}
+
+	*s.Value = slice[0]
+	return nil
+}
